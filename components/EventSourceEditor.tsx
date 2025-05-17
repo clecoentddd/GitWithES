@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import styles from "./Home.module.css";
 import EventTime from "./ClientTime";
 import { EventEntry } from "./EventEntry";
@@ -13,7 +13,7 @@ import {
   cancelChangeCommand,
 } from "./commands";
 
-import ProjectionScreen from "./ProjectionScreen";
+import ProjectionScreen from "./ProjectionView";
 import ProjectionHistory from "./ProjectionHistory";
 
 import {
@@ -78,6 +78,8 @@ function reduce(
   let isChangePublished = false;
   let latestTimestamp = 0;
 
+  
+
   const applyEvent = (event: Event) => {
     latestTimestamp = Math.max(latestTimestamp, event.timestamp);
 
@@ -115,10 +117,8 @@ function reduce(
     }
   };
 
-  const baseEvents = events.filter(
-    (e) => !("belongsTo" in e) || e.belongsTo === requestId
-  );
-  baseEvents.forEach(applyEvent);
+  events.forEach(applyEvent);
+
 
   if (!isChangeCancelled) {
     const changeEvents = events.filter(
@@ -154,15 +154,55 @@ export default function EventSourceEditor() {
   const [changeId, setChangeId] = useState<string | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
   const [pendingEvents, setPendingEvents] = useState<Event[]>([]);
+  const [resetProjection, setResetProjection] = useState(false);
+
+  const allPublishedEventsRef = useRef<Event[]>([]);
 
   useEffect(() => {
-    setEvents([
+    // Initialize events with RequestCreated event
+    const initialEvents = [
       createEvent({
         type: "RequestCreated",
         requestId,
       }),
-    ]);
+    ];
+    setEvents(initialEvents);
+    allPublishedEventsRef.current = initialEvents;
   }, [requestId]);
+
+    // Whenever events update and there is no active draft (changeId), update the allPublishedEventsRef
+    useEffect(() => {
+        if (!changeId) {
+          // Only track published/committed events here (no drafts)
+          const publishedEvents = events.filter(
+            (e) => !("belongsTo" in e) || e.belongsTo === requestId
+          );
+          allPublishedEventsRef.current = publishedEvents;
+        }
+      }, [events, changeId, requestId]);
+    
+      // Handler to empty projection: show no events
+      function handleEmptyProjection() {
+        setEvents([]);
+        setResetProjection(true);
+      }
+
+  // Handler to replay all published + committed events (reset view)
+  // Handler to replay all published + committed events (reset view)
+function handleReplayProjection() {
+    const includedChanges = new Set(publishedChangeIds);
+  
+    const replayedState = reduce(
+      allPublishedEventsRef.current,
+      requestId,
+      null,
+      includedChanges
+    );
+  
+    setEvents(allPublishedEventsRef.current);
+    setResetProjection(false);
+  }
+  
 
   const [replayVersionId, setReplayVersionId] = useState<string>("");
   const [selectedMonth, setSelectedMonth] = useState<string>("");
@@ -209,11 +249,20 @@ export default function EventSourceEditor() {
       includedChangesLookup[change.id] = included;
     }
 
+    
     return {
       versions: versions.sort((a, b) => b.timestamp - a.timestamp),
       includedChangesLookup,
     };
   }, [events]);
+
+  // Collect all published change ids
+const publishedChangeIds = useMemo(() => {
+    return versions
+      .filter((v) => v.type === "published")
+      .map((v) => v.id);
+  }, [versions]);
+  
 
   const replayVersion = (
     versionId: string,
@@ -241,11 +290,7 @@ export default function EventSourceEditor() {
       ? { [selectedMonth]: displayState.finances[selectedMonth] }
       : displayState.finances;
 
-  // Collect all published change ids
-  const publishedChangeIds = useMemo(() => {
-    return versions.filter((v) => v.type === "published").map((v) => v.id);
-  }, [versions]);
-
+  
   // Create a Set of all published changes + current draft (if any)
   const includedChangesWithDraft = useMemo(() => {
     const set = new Set(publishedChangeIds);
@@ -380,12 +425,17 @@ export default function EventSourceEditor() {
 
       {/* Right Side */}
       <section className={styles.rightColumn}>
-        <ProjectionScreen
-          finances={filteredMonthWithDrafts}
-          selectedMonth={selectedMonth}
-          onMonthSelect={setSelectedMonth}
-          months={availableMonths}
+        
+
+      <ProjectionScreen
+        events={events}
+        onReplay={handleReplayProjection}
+        publishedChangeIds={new Set(publishedChangeIds)}  // convert array to Set here
+        draftChangeId={changeId}
         />
+
+
+
         <ProjectionHistory
             finances={replayed ? replayed.finances : {}}
             replayVersionId={replayVersionId}    // <-- correct prop name

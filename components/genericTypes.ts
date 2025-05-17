@@ -10,6 +10,7 @@ export type TimePeriod = {
     description: string;
     kind: "income" | "expense";
     changeId: string;
+    isDraft?: boolean;  // <-- Add this line
   };
   
   export type MonthlyFinances = {
