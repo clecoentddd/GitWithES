@@ -1,6 +1,6 @@
 // events.ts
 import { createEvent } from "./EventSourceEditor";
-import { Event } from "../types/types";
+import { Event } from "./genericTypes";
 
 export function createChangeEvent(): { event: Event, changeId: string } {
   const newId = `0x${(Math.random() * 10000).toFixed(0)}`;

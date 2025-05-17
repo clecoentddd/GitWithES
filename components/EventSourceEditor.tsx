@@ -5,92 +5,29 @@ import styles from "./Home.module.css";
 import EventTime from "./ClientTime";
 import { EventEntry } from "./EventEntry";
 
-import { 
-    addIncomeCommand, 
-    addExpenseCommand, 
-    createChangeCommand, 
-    publishChangeCommand, 
-    cancelChangeCommand } from "./commands";
+import {
+  addIncomeCommand,
+  addExpenseCommand,
+  createChangeCommand,
+  publishChangeCommand,
+  cancelChangeCommand,
+} from "./commands";
+
+import ProjectionScreen from "./ProjectionScreen";
+import ProjectionHistory from "./ProjectionHistory";
+
+import {
+  Entry,
+  Event,
+  EventWithoutTimestamp,
+  MonthlyFinances,
+  State,
+  TimePeriod,
+  VersionInfo,
+} from "./genericTypes";
 
 
-type TimePeriod = {
-  start: Date;
-  end: Date;
-};
-
-export type Event = {
-  timestamp: number;
-} & (
-  | { type: "RequestCreated"; requestId: string }
-  | { type: "ChangeCreated"; changeId: string }
-  | {
-      type: "IncomeAdded";
-      amount: number;
-      description: string;
-      belongsTo: string;
-      period: TimePeriod;
-    }
-  | {
-      type: "ExpenseAdded";
-      amount: number;
-      description: string;
-      belongsTo: string;
-      period: TimePeriod;
-    }
-  | { type: "EntryRemoved"; index: number; belongsTo: string }
-  | { type: "ChangeCancelled"; changeId: string }
-  | { type: "ChangePublished"; changeId: string }
-);
-
-type Entry = {
-  amount: number;
-  description: string;
-  kind: "income" | "expense";
-  changeId: string;
-};
-
-type MonthlyFinances = {
-  [monthKey: string]: {
-    incomes: Entry[];
-    expenses: Entry[];
-    net: number;
-  };
-};
-
-export type State = {
-  finances: MonthlyFinances;
-  changeId: string | null;
-  requestId: string;
-  changeStatus: "completed" | "draft" | "published" | "cancelled";
-  version: number;
-  timestamp: number;
-};
-
-type VersionInfo = {
-  id: string;
-  type: "published" | "cancelled";
-  timestamp: number;
-  description: string;
-};
-
-type EventWithoutTimestamp =
-  | Omit<Event, "timestamp"> & { type: "RequestCreated" }
-  | Omit<Event, "timestamp"> & { type: "ChangeCreated" }
-  | Omit<Event, "timestamp"> & { type: "IncomeAdded" }
-  | Omit<Event, "timestamp"> & { type: "ExpenseAdded" }
-  | Omit<Event, "timestamp"> & { type: "EntryRemoved" }
-  | Omit<Event, "timestamp"> & { type: "ChangeCancelled" }
-  | Omit<Event, "timestamp"> & { type: "ChangePublished" };
-
-export function createEvent<T extends EventWithoutTimestamp>(
-  event: T
-): T & { timestamp: number } {
-  const timestamp = Date.now();
-  return {
-    ...event,
-    timestamp,
-  };
-}
+// Utility functions
 
 function getMonthsInPeriod(period: TimePeriod): Date[] {
   const months: Date[] = [];
@@ -109,7 +46,7 @@ function formatMonthKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function formatMonthDisplay(monthKey: string): string {
+export function formatMonthDisplay(monthKey: string): string {
   const [year, month] = monthKey.split("-");
   const date = new Date(parseInt(year), parseInt(month) - 1);
 
@@ -118,6 +55,16 @@ function formatMonthDisplay(monthKey: string): string {
     month: "long",
   });
   return formatter.format(date);
+}
+
+export function createEvent<T extends EventWithoutTimestamp>(
+  event: T
+): T & { timestamp: number } {
+  const timestamp = Date.now();
+  return {
+    ...event,
+    timestamp,
+  };
 }
 
 function reduce(
@@ -202,7 +149,7 @@ function reduce(
   };
 }
 
-export default function HomePage() {
+export default function EventSourceEditor() {
   const requestId = "0x01";
   const [changeId, setChangeId] = useState<string | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
@@ -220,7 +167,7 @@ export default function HomePage() {
   const [replayVersionId, setReplayVersionId] = useState<string>("");
   const [selectedMonth, setSelectedMonth] = useState<string>("");
 
-  const state = reduce(events, requestId, changeId);
+  const state: State = reduce(events, requestId, changeId);
 
   const { versions, includedChangesLookup } = useMemo(() => {
     const versions: VersionInfo[] = [];
@@ -309,7 +256,6 @@ export default function HomePage() {
   // Get the combined state including published + draft
   const stateWithDrafts = useMemo(() => {
     if (!includedChangesWithDraft.size) {
-      // No included changes, fallback to base state
       return reduce(events, requestId, null);
     }
     return reduce(events, requestId, null, includedChangesWithDraft);
@@ -336,33 +282,33 @@ export default function HomePage() {
             Status: <strong>{state.changeStatus}</strong>
           </p>
           <button
-            className={`${styles.buttonBase} ${styles.btnCreateChange}`}
+            className={`${styles.buttonBase} ${styles.btnIncome}`}
             onClick={() => createChangeCommand(setEvents, setChangeId)}
           >
             Create Change
           </button>
           <button
-            className={`${styles.buttonBase} ${styles.btnIncome}`}
-            onClick={() => {
-              if (!changeId) return;
-              const newEvent = addIncomeCommand(changeId);
-              if (newEvent) {
-                setPendingEvents((prev) => [...prev, newEvent]);
-              }
-            }}
+          className={`${styles.buttonBase} ${styles.btnExpense}`}
+           onClick={async () => {  // ✅ Add async here
+            if (!changeId) return;
+            const newEvent = await addIncomeCommand(changeId);  // ✅ Add await
+            if (newEvent) {
+              setPendingEvents((prev) => [...prev, newEvent]);
+            }
+          }}
             disabled={!changeId}
           >
             + Income
           </button>
           <button
             className={`${styles.buttonBase} ${styles.btnExpense}`}
-            onClick={() => {
-              if (!changeId) return;
-              const newEvent = addExpenseCommand(changeId);
-              if (newEvent) {
-                setPendingEvents((prev) => [...prev, newEvent]);
-              }
-            }}
+            onClick={async () => {  // ✅ Add async here
+                if (!changeId) return;
+                const newEvent = await addExpenseCommand(changeId);  // ✅ Add await
+                if (newEvent) {
+                  setPendingEvents((prev) => [...prev, newEvent]);
+                }
+              }}
             disabled={!changeId}
           >
             + Expense
@@ -398,152 +344,57 @@ export default function HomePage() {
           >
             Cancel
           </button>
-          <p>
-            Current ChangeId: <code>{changeId ?? "None"}</code>
-          </p>
-          <p>Committed Events: {events.length}</p>
-          <p>Pending Events: {pendingEvents.length}</p>
-          <div style={{ marginTop: "1rem" }}>
-            <h3>Pending Events (Uncommitted)</h3>
-            <ul>
-              {pendingEvents.map((event, i) => (
-                <li key={i}>
-                  {event.type === "IncomeAdded" || event.type === "ExpenseAdded"
-                    ? `${event.type === "IncomeAdded" ? "+" : "-"} ${event.amount} - ${event.description}`
-                    : event.type}
-                </li>
-              ))}
-            </ul>
+          <div className={styles.pendingEvents}>
+            <h3>Pending Commands:</h3>
+                {pendingEvents.length === 0 ? (
+                    <p>No pending commands.</p>
+                ) : (
+                    <ul>
+                    {pendingEvents.map((event, index) => {
+                        if (event.type !== "IncomeAdded" && event.type !== "ExpenseAdded") return null;
+                        return (
+                        <li key={index} style={{ marginBottom: "0.5em" }}>
+                            <strong>Reference:</strong> {event.description} <br />
+                            <strong>Amount:</strong> {event.amount} <br />
+                            <strong>Period:</strong> {event.period.start.toLocaleDateString()} - {event.period.end.toLocaleDateString()}
+                        </li>
+                        );
+                    })}
+                    </ul>
+                )}
+                </div>
+
+
+        </div>
+
+        {/* Bottom Left: Event Entries */}
+        <div className={styles.bottomLeft}>
+          <h2>Events</h2>
+          <div className={styles.eventList}>
+            {[...events].reverse().map((event, idx) => (
+              <EventEntry key={`${event.timestamp}-${idx}`} event={event} />
+            ))}
           </div>
         </div>
-  
-        {/* Bottom Left: Event Source DB */}
-        <div className={styles.bottomLeft}>
-          <h2>Event Source DB</h2>
-          <ol style={{ borderLeft: "3px solid orange", paddingLeft: "1rem" }}>
-            {events.map((event, idx) => (
-              <li key={idx} style={{ marginBottom: "1rem" }}>
-                <EventEntry event={event} />
-                <EventTime timestamp={event.timestamp} />
-              </li>
-            ))}
-          </ol>
-        </div>
       </section>
-  
-        {/* Top Right: Current State (Published + Committed) */}
-        <div className={styles.topRight}>
-        {/* Top Right: Published + Draft Events Summary */}
-<section className={styles.topRight} aria-labelledby="published-draft-summary">
-  <h2 id="published-draft-summary">Published + Draft Events Summary</h2>
-  <table className={styles.financeTable}>
-    <thead>
-      <tr>
-        <th>Month</th>
-        <th>Incomes</th>
-        <th>Expenses</th>
-        <th>Net</th>
-      </tr>
-    </thead>
-    <tbody>
-      {Object.entries(filteredMonthWithDrafts).map(([monthKey, data]) => (
-        <tr key={monthKey}>
-          <td>{formatMonthDisplay(monthKey)}</td>
-          <td>
-            <ul className={styles.entryList}>
-              {data.incomes.map((income, i) => (
-                <li key={i}>
-                  ${income.amount} - {income.description}
-                </li>
-              ))}
-            </ul>
-          </td>
-          <td>
-            <ul className={styles.entryList}>
-              {data.expenses.map((expense, i) => (
-                <li key={i}>
-                  ${expense.amount} - {expense.description}
-                </li>
-              ))}
-            </ul>
-          </td>
-          <td className={data.net >= 0 ? styles.netPositive : styles.netNegative}>
-            ${data.net}
-          </td>
-        </tr>
-      ))}
-    </tbody>
-  </table>
-</section>
 
-{/* Version History Selection */}
-<section className={styles.versionHistory} aria-labelledby="version-history-label">
-  <h3 id="version-history-label">Version History</h3>
-  <select
-    value={replayVersionId}
-    onChange={(e) => setReplayVersionId(e.target.value)}
-    style={{ width: "100%", marginBottom: "1rem" }}
-  >
-    <option value="">-- Choose Version --</option>
-    {versions.map((version) => (
-      <option key={version.id} value={version.id}>
-        {version.description} ({new Date(version.timestamp).toLocaleString()})
-      </option>
-    ))}
-  </select>
-</section>
+      {/* Right Side */}
+      <section className={styles.rightColumn}>
+        <ProjectionScreen
+          finances={filteredMonthWithDrafts}
+          selectedMonth={selectedMonth}
+          onMonthSelect={setSelectedMonth}
+          months={availableMonths}
+        />
+        <ProjectionHistory
+            finances={replayed ? replayed.finances : {}}
+            replayVersionId={replayVersionId}    // <-- correct prop name
+            setReplayVersionId={setReplayVersionId} // Also provide this required callback
+            versions={versions}                   // Also provide versions array, required by component
+            />
 
-{/* Bottom Right: Selected Version Details */}
-<section className={styles.bottomRight} aria-labelledby="selected-version-details">
-  {replayVersionId ? (
-    <table className={styles.financeTable}>
-      <thead>
-        <tr>
-          <th>Month</th>
-          <th>Incomes</th>
-          <th>Expenses</th>
-          <th>Net</th>
-        </tr>
-      </thead>
-      <tbody>
-        {Object.entries(filteredMonth).map(([monthKey, data]) => (
-          <tr key={monthKey}>
-            <td>{formatMonthDisplay(monthKey)}</td>
-            <td>
-              <ul className={styles.entryList}>
-                {data.incomes.map((income, i) => (
-                  <li key={i}>
-                    ${income.amount} - {income.description}
-                  </li>
-                ))}
-              </ul>
-            </td>
-            <td>
-              <ul className={styles.entryList}>
-                {data.expenses.map((expense, i) => (
-                  <li key={i}>
-                    ${expense.amount} - {expense.description}
-                  </li>
-                ))}
-              </ul>
-            </td>
-            <td className={data.net >= 0 ? styles.netPositive : styles.netNegative}>
-              ${data.net}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  ) : (
-    <p>Please select a version to see history.</p>
-  )}
-</section>
 
-        </div>
-
+      </section>
     </main>
   );
-  
-  
-
 }
