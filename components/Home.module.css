@@ -164,16 +164,16 @@
   cursor: not-allowed;
 }
 
-.orange-theme h2 {
+.orangeTheme h2 {
   color: orange;
 }
 
-.orange-theme ol {
+.orangeTheme ol {
   border-left: 3px solid orange;
   padding-left: 1rem;
 }
 
-.orange-theme li {
+.orangeTheme li {
   margin-bottom: 1rem;
   color: orange;
 }
@@ -185,6 +185,8 @@
 .eventList {
   border-left: 3px solid orange;
   padding-left: 1rem;
+  max-height: 300px; /* Adjust height as needed */
+  overflow-y: auto;
 }
 
 .eventList li {

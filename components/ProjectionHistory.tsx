@@ -28,12 +28,17 @@ export default function ProjectionHistory({
 }: Props) {
   const [showVersions, setShowVersions] = useState(true);
 
+  // Log the props being passed to the component
+  console.log("Versions:", versions);
+  console.log("Replay Version ID:", replayVersionId);
+  console.log("Finances:", finances);
+
   return (
     <section className={styles.bottomRight} aria-labelledby="version-history">
-      
-        <h3 className={styles.infoMessage}>
+
+      <h3 className={styles.infoMessage}>
         Please select a photo (history)
-        </h3>
+      </h3>
 
       {/* Toggle Button */}
       <button
@@ -43,30 +48,30 @@ export default function ProjectionHistory({
       >
         {showVersions ? "Hide Versions ▲" : "Show Versions ▼"}
       </button>
-  
+
       {/* Version List (dropdown style) */}
       {showVersions && versions.length > 0 && (
         <ul className={styles.versionList}>
-        {versions.map((version) => (
-          <li key={version.id} className={styles.versionListItem}>
-            <button
-              className={
-                replayVersionId === version.id
-                  ? styles.selectedVersion
-                  : styles.versionButton
-              }
-              onClick={() => setReplayVersionId(version.id)}
-              type="button"
-            >
-              {version.description} —{" "}
-              {new Date(version.timestamp).toLocaleString()}
-            </button>
-          </li>
-        ))}
-      </ul>
-      
+          {versions.map((version) => (
+            <li key={version.id} className={styles.versionListItem}>
+              <button
+                className={
+                  replayVersionId === version.id
+                    ? styles.selectedVersion
+                    : styles.versionButton
+                }
+                onClick={() => setReplayVersionId(version.id)}
+                type="button"
+              >
+                {version.description} —{" "}
+                {new Date(version.timestamp).toLocaleString()}
+              </button>
+            </li>
+          ))}
+        </ul>
+
       )}
-  
+
       {/* Selected Version Details */}
       {replayVersionId && (
         <section aria-labelledby="selected-version-details">
