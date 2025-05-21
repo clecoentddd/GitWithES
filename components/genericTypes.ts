@@ -4,6 +4,13 @@ export type TimePeriod = {
     start: Date;
     end: Date;
   };
+
+  export type EnrichedEntry = Entry & {
+  month: string; // e.g., "2025-01"
+  changeType: "created" | "published" | "unknown";
+  changeTimestamp: number;
+};
+  
   
   export type Entry = {
     amount: number;
@@ -69,4 +76,13 @@ export type TimePeriod = {
     | Omit<Event, "timestamp"> & { type: "EntryRemoved" }
     | Omit<Event, "timestamp"> & { type: "ChangeCancelled" }
     | Omit<Event, "timestamp"> & { type: "ChangePublished" };
+
   
+  export type Finances = {
+  [monthKey: string]: {
+    incomes: { amount: number; description: string; changeType: "published" | "cancelled" }[];
+    expenses: { amount: number; description: string; changeType: "published" | "cancelled" }[];
+    net: number;
+  };
+};
+

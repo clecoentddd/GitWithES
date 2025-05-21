@@ -1,24 +1,63 @@
 "use client";
 
-import React, { useState } from "react";
-import styles from "./Home.module.css";
+import React, { useEffect, useMemo, useState } from "react";
+import styles from "./ProjectionHistory.module.css";
 import { formatMonthDisplay } from "./EventSourceEditor";
-import { VersionInfo } from "./genericTypes";
+import { VersionInfo, Finances } from "./genericTypes";
 
-type Finances = {
-  [monthKey: string]: {
-    incomes: { amount: number; description: string }[];
-    expenses: { amount: number; description: string }[];
-    net: number;
-  };
+// Import or define EnrichedEvent type
+type EnrichedEvent = {
+  amount: number;
+  description: string;
+  kind: "income" | "expense";
+  changeId: string;
+  changeType: "published" | "cancelled" | "unknown";
+  changeTimestamp: number;
+  month: string; // e.g. "2024-05"
 };
+
 
 type Props = {
   versions: VersionInfo[];
   replayVersionId: string;
   setReplayVersionId: (id: string) => void;
-  finances: Finances;
+  finances: Finances; // 🔁 changed from EnrichedEvent[]
 };
+
+function transformEnrichedEventsToFinances(events: EnrichedEvent[]): Finances {
+  const finances: Finances = {};
+
+  for (const ev of events) {
+    // ✅ Skip unknown changeTypes
+    if (ev.changeType !== "published" && ev.changeType !== "cancelled") {
+      continue;
+    }
+
+    const monthKey = ev.month;
+
+    if (!finances[monthKey]) {
+      finances[monthKey] = { incomes: [], expenses: [], net: 0 };
+    }
+
+    const entry = {
+      amount: ev.amount,
+      description: ev.description,
+      changeType: ev.changeType, // now narrowed to "published" | "cancelled"
+    };
+
+    if (ev.kind === "income") {
+      finances[monthKey].incomes.push(entry);
+      finances[monthKey].net += ev.amount;
+    } else {
+      finances[monthKey].expenses.push(entry);
+      finances[monthKey].net -= ev.amount;
+    }
+  }
+
+  return finances;
+}
+
+
 
 export default function ProjectionHistory({
   versions,
@@ -28,19 +67,43 @@ export default function ProjectionHistory({
 }: Props) {
   const [showVersions, setShowVersions] = useState(true);
 
-  // Log the props being passed to the component
-  console.log("Versions:", versions);
-  console.log("Replay Version ID:", replayVersionId);
-  console.log("Finances:", finances);
+  // Auto-select latest published version if none selected
+  useEffect(() => {
+    if (!replayVersionId && versions.length > 0) {
+      const latestPublished = [...versions].reverse().find((v) => v.type === "published");
+      if (latestPublished) {
+        setReplayVersionId(latestPublished.id);
+      }
+    }
+  }, [replayVersionId, versions, setReplayVersionId]);
+
+ 
+// ✅ This is used just for the dropdown UI
+const allSelectableVersions = useMemo(() => {
+  return versions.filter((v) => v.type === "published" || v.type === "cancelled");
+}, [versions]);
+
+// ✅ This is used to compute finance replay scope
+const replayScopeVersions = useMemo(() => {
+  if (!replayVersionId) return [];
+
+  const selectedIndex = versions.findIndex((v) => v.id === replayVersionId);
+  if (selectedIndex === -1) return [];
+
+  const previousPublished = versions
+    .slice(0, selectedIndex)
+    .filter((v) => v.type === "published");
+
+  return [...previousPublished, versions[selectedIndex]];
+}, [versions, replayVersionId]);
+
+
+
 
   return (
     <section className={styles.bottomRight} aria-labelledby="version-history">
+      <h3 className={styles.infoMessage}>Please select a photo (history)</h3>
 
-      <h3 className={styles.infoMessage}>
-        Please select a photo (history)
-      </h3>
-
-      {/* Toggle Button */}
       <button
         type="button"
         className={styles.versionDropdownToggle}
@@ -49,30 +112,28 @@ export default function ProjectionHistory({
         {showVersions ? "Hide Versions ▲" : "Show Versions ▼"}
       </button>
 
-      {/* Version List (dropdown style) */}
-      {showVersions && versions.length > 0 && (
-        <ul className={styles.versionList}>
-          {versions.map((version) => (
-            <li key={version.id} className={styles.versionListItem}>
-              <button
-                className={
-                  replayVersionId === version.id
-                    ? styles.selectedVersion
-                    : styles.versionButton
-                }
-                onClick={() => setReplayVersionId(version.id)}
-                type="button"
-              >
-                {version.description} —{" "}
-                {new Date(version.timestamp).toLocaleString()}
-              </button>
-            </li>
-          ))}
-        </ul>
+     {showVersions && allSelectableVersions.length > 0 && (
+         <ul className={styles.versionList}>
+    {allSelectableVersions.map((version) => (
+      <li key={version.id} className={styles.versionListItem}>
+        <button
+          className={
+            replayVersionId === version.id
+              ? styles.selectedVersion
+              : styles.versionButton
+          }
+          onClick={() => setReplayVersionId(version.id)}
+          type="button"
+        >
+          {version.description} — {new Date(version.timestamp).toLocaleString()} (
+          {version.type === "published" ? "P" : "C"})
+        </button>
+      </li>
+    ))}
+  </ul>
 
       )}
 
-      {/* Selected Version Details */}
       {replayVersionId && (
         <section aria-labelledby="selected-version-details">
           <h3 id="selected-version-details">Selected Version Details</h3>
@@ -86,14 +147,14 @@ export default function ProjectionHistory({
               </tr>
             </thead>
             <tbody>
-              {Object.entries(finances || {}).map(([monthKey, data]) => (
+              {Object.entries(finances).map(([monthKey, data]) => (
                 <tr key={monthKey}>
                   <td>{formatMonthDisplay(monthKey)}</td>
                   <td>
                     <ul className={styles.entryList}>
                       {data.incomes.map((income, i) => (
                         <li key={i}>
-                          ${income.amount} - {income.description}
+                          {income.description} : CHF{income.amount}
                         </li>
                       ))}
                     </ul>
@@ -102,19 +163,15 @@ export default function ProjectionHistory({
                     <ul className={styles.entryList}>
                       {data.expenses.map((expense, i) => (
                         <li key={i}>
-                          ${expense.amount} - {expense.description}
+                          {expense.description} : CHF{expense.amount}
                         </li>
                       ))}
                     </ul>
                   </td>
                   <td
-                    className={
-                      data.net >= 0
-                        ? styles.netPositive
-                        : styles.netNegative
-                    }
+                    className={data.net >= 0 ? styles.netPositive : styles.netNegative}
                   >
-                    ${data.net}
+                    {data.net}
                   </td>
                 </tr>
               ))}
@@ -122,6 +179,12 @@ export default function ProjectionHistory({
           </table>
         </section>
       )}
+      <div style={{ marginTop: "2rem", backgroundColor: "#f9f9f9", padding: "1rem", border: "1px solid #ccc" }}>
+  <h4>Debug Info</h4>
+  <pre><strong>All versions:</strong> {JSON.stringify(versions, null, 2)}</pre>
+  <pre><strong>Replay version ID:</strong> {replayVersionId}</pre>
+  <pre><strong>Filtered versions:</strong> {JSON.stringify(allSelectableVersions, null, 2)}</pre>
+</div>
     </section>
   );
 }

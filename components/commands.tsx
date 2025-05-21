@@ -6,7 +6,7 @@ import {
   createPublishEvent,
   createCancelEvent,
 } from "./events";
-import { DBEvents } from "./DBEVents";	
+import { DBEvents } from "./DBEVents";
 
 // -- Description dropdowns --
 
@@ -85,7 +85,7 @@ function showDescriptionDialog(options: string[]): Promise<string | null> {
     confirmButton.style.marginTop = "10px";
     confirmButton.onclick = () => {
       const selectedValue = select.value;
-      document.body.removeChild(modal);
+      document.body.removeChild(modal); // Close the modal immediately after confirmation
       resolve(selectedValue || null);
     };
 
@@ -150,9 +150,8 @@ export function publishChangeCommand(changeId: string): Event | undefined {
     return createPublishEvent(changeId);
   }
 
-  export function cancelChangeCommand(changeId: string) {
-    if (!changeId) return null;  // return null if no changeId
-    
-    return createCancelEvent(changeId);
-  }
-  
+export function cancelChangeCommand(changeId: string) {
+  if (!changeId) return null;  // return null if no changeId
+
+  return createCancelEvent(changeId);
+}

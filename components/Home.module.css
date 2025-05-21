@@ -245,7 +245,10 @@
 /* styles.module.css */
 .buttonBase {
   color: white;
-  padding: 0.5rem 1rem;
+  padding: 0.2rem 1rem;
+  margin-bottom: 2px;
+  margin-left: 2px;
+  border-color: white;
   font-weight: bold;
   border: none;
   border-radius: 5px;
@@ -271,7 +274,7 @@
 
 /* Add similar classes for other buttons if needed */
 .btnIncome {
-  background-color: #4caf50;
+  background-color: #0055cc;
 }
 .btnExpense {
   background-color: #2196f3;
@@ -286,7 +289,7 @@
 }
 
 .btnCreateChange {
-  background-color: #17a2b8; /* teal */
+  background-color: black; /* teal */
 }
 
 .btnCreateChange:hover {
@@ -490,4 +493,28 @@
 
 .controlButton:hover {
   background-color: green;
+}
+
+/* Heading styles */
+.heading {
+  font-family: 'Arial', sans-serif;
+  color: #2c3e50; /* Dark blue-gray color */
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+/* Paragraph styles */
+.paragraph {
+  font-family: 'Arial', sans-serif;
+  color: #7f8c8d; /* Gray color */
+  font-size: 1rem;
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+/* Strong text within paragraph */
+.strongText {
+  color: #e74c3c; /* Red color for emphasis */
+  font-weight: bold;
 }
