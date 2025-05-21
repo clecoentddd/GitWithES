@@ -4,6 +4,8 @@ import React, { useState, useMemo } from "react";
 import styles from "./projectionView.module.css";
 import { formatMonthDisplay } from "./EventSourceEditor";
 import { Entry, Event } from "./genericTypes";
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faTrashAlt, faRedo } from '@fortawesome/free-solid-svg-icons';
 
 type Props = {
   events: Event[];
@@ -144,7 +146,7 @@ export default function ProjectionScreen({
 
       <div className={styles.buttonGroup}>
         <button className={styles.controlButton} onClick={() => setIsEmptyView(true)}>
-          Empty View
+          <FontAwesomeIcon icon={faTrashAlt} /> {/* Icon for Empty View */}
         </button>
         <button
           className={styles.controlButton}
@@ -153,7 +155,7 @@ export default function ProjectionScreen({
             onReplay();
           }}
         >
-          Replay Published Events
+          <FontAwesomeIcon icon={faRedo} /> {/* Icon for Replay Published Events */}
         </button>
       </div>
 
@@ -186,7 +188,7 @@ export default function ProjectionScreen({
                       }}
                       title={income.isDraft ? "Draft entry" : "Published entry"}
                     >
-                      ${income.amount} - {income.description}
+                      {income.description} : CHF{income.amount}
                     </li>
                   ))}
                 </ul>
@@ -202,13 +204,13 @@ export default function ProjectionScreen({
                       }}
                       title={expense.isDraft ? "Draft entry" : "Published entry"}
                     >
-                      ${expense.amount} - {expense.description}
+                       {expense.description} : CHF{expense.amount}
                     </li>
                   ))}
                 </ul>
               </td>
               <td className={data.net >= 0 ? styles.netPositive : styles.netNegative}>
-                ${data.net}
+                CHF{data.net}
               </td>
             </tr>
           ))}
