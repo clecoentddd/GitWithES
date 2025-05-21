@@ -5,7 +5,10 @@ import styles from "./ProjectionHistory.module.css";
 import { formatMonthDisplay } from "./EventSourceEditor";
 import { VersionInfo, Finances } from "./genericTypes";
 
-// Import or define EnrichedEvent type
+// Temporary type - can be removed later
+
+
+// ... (rest of your component remains exactly the same)
 type EnrichedEvent = {
   amount: number;
   description: string;
@@ -13,57 +16,21 @@ type EnrichedEvent = {
   changeId: string;
   changeType: "published" | "cancelled" | "unknown";
   changeTimestamp: number;
-  month: string; // e.g. "2024-05"
+  month: string;
 };
-
 
 type Props = {
   versions: VersionInfo[];
   replayVersionId: string;
   setReplayVersionId: (id: string) => void;
-  finances: Finances; // 🔁 changed from EnrichedEvent[]
+  finances: Finances;
 };
-
-function transformEnrichedEventsToFinances(events: EnrichedEvent[]): Finances {
-  const finances: Finances = {};
-
-  for (const ev of events) {
-    // ✅ Skip unknown changeTypes
-    if (ev.changeType !== "published" && ev.changeType !== "cancelled") {
-      continue;
-    }
-
-    const monthKey = ev.month;
-
-    if (!finances[monthKey]) {
-      finances[monthKey] = { incomes: [], expenses: [], net: 0 };
-    }
-
-    const entry = {
-      amount: ev.amount,
-      description: ev.description,
-      changeType: ev.changeType, // now narrowed to "published" | "cancelled"
-    };
-
-    if (ev.kind === "income") {
-      finances[monthKey].incomes.push(entry);
-      finances[monthKey].net += ev.amount;
-    } else {
-      finances[monthKey].expenses.push(entry);
-      finances[monthKey].net -= ev.amount;
-    }
-  }
-
-  return finances;
-}
-
-
 
 export default function ProjectionHistory({
   versions,
   replayVersionId,
   setReplayVersionId,
-  finances,
+  finances: allFinances,
 }: Props) {
   const [showVersions, setShowVersions] = useState(true);
 
@@ -77,28 +44,53 @@ export default function ProjectionHistory({
     }
   }, [replayVersionId, versions, setReplayVersionId]);
 
- 
-// ✅ This is used just for the dropdown UI
-const allSelectableVersions = useMemo(() => {
-  return versions.filter((v) => v.type === "published" || v.type === "cancelled");
-}, [versions]);
+  // Get all version IDs in the replay scope
+  const replayScopeVersionIds = useMemo(() => {
+    if (!replayVersionId) return new Set<string>();
+    
+    const selectedIndex = versions.findIndex((v) => v.id === replayVersionId);
+    if (selectedIndex === -1) return new Set<string>();
 
-// ✅ This is used to compute finance replay scope
-const replayScopeVersions = useMemo(() => {
-  if (!replayVersionId) return [];
+    // Include all published versions before the selected one, plus the selected version itself
+    const scopeVersions = versions
+      .slice(0, selectedIndex + 1)
+      .filter((v) => v.type === "published" || v.id === replayVersionId);
 
-  const selectedIndex = versions.findIndex((v) => v.id === replayVersionId);
-  if (selectedIndex === -1) return [];
+    return new Set(scopeVersions.map(v => v.id));
+  }, [versions, replayVersionId]);
 
-  const previousPublished = versions
-    .slice(0, selectedIndex)
-    .filter((v) => v.type === "published");
+  // Filter finances to only include entries from the replay scope
+  const filteredFinances = useMemo(() => {
+    const result: Finances = {};
+    
+    for (const [month, data] of Object.entries(allFinances)) {
+      const filteredIncomes = data.incomes.filter(income => 
+        income.changeId ? replayScopeVersionIds.has(income.changeId) : false
+      );
+      
+      const filteredExpenses = data.expenses.filter(expense => 
+        expense.changeId ? replayScopeVersionIds.has(expense.changeId) : false
+      );
+      
+      if (filteredIncomes.length > 0 || filteredExpenses.length > 0) {
+        const net = filteredIncomes.reduce((sum, i) => sum + i.amount, 0) - 
+                   filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
+        
+        result[month] = {
+          incomes: filteredIncomes,
+          expenses: filteredExpenses,
+          net
+        };
+      }
+    }
+    
+    return result;
+  }, [allFinances, replayScopeVersionIds]);
 
-  return [...previousPublished, versions[selectedIndex]];
-}, [versions, replayVersionId]);
-
-
-
+  // This is used just for the dropdown UI
+  const allSelectableVersions = useMemo(() => {
+    return versions.filter((v) => v.type === "published" || v.type === "cancelled");
+  }, [versions]);
 
   return (
     <section className={styles.bottomRight} aria-labelledby="version-history">
@@ -112,26 +104,25 @@ const replayScopeVersions = useMemo(() => {
         {showVersions ? "Hide Versions ▲" : "Show Versions ▼"}
       </button>
 
-     {showVersions && allSelectableVersions.length > 0 && (
-         <ul className={styles.versionList}>
-    {allSelectableVersions.map((version) => (
-      <li key={version.id} className={styles.versionListItem}>
-        <button
-          className={
-            replayVersionId === version.id
-              ? styles.selectedVersion
-              : styles.versionButton
-          }
-          onClick={() => setReplayVersionId(version.id)}
-          type="button"
-        >
-          {version.description} — {new Date(version.timestamp).toLocaleString()} (
-          {version.type === "published" ? "P" : "C"})
-        </button>
-      </li>
-    ))}
-  </ul>
-
+      {showVersions && allSelectableVersions.length > 0 && (
+        <ul className={styles.versionList}>
+          {allSelectableVersions.map((version) => (
+            <li key={version.id} className={styles.versionListItem}>
+              <button
+                className={
+                  replayVersionId === version.id
+                    ? styles.selectedVersion
+                    : styles.versionButton
+                }
+                onClick={() => setReplayVersionId(version.id)}
+                type="button"
+              >
+                {version.description} — {new Date(version.timestamp).toLocaleString()} (
+                {version.type === "published" ? "P" : "C"})
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
 
       {replayVersionId && (
@@ -147,7 +138,7 @@ const replayScopeVersions = useMemo(() => {
               </tr>
             </thead>
             <tbody>
-              {Object.entries(finances).map(([monthKey, data]) => (
+              {Object.entries(filteredFinances).map(([monthKey, data]) => (
                 <tr key={monthKey}>
                   <td>{formatMonthDisplay(monthKey)}</td>
                   <td>
@@ -179,12 +170,15 @@ const replayScopeVersions = useMemo(() => {
           </table>
         </section>
       )}
+
       <div style={{ marginTop: "2rem", backgroundColor: "#f9f9f9", padding: "1rem", border: "1px solid #ccc" }}>
-  <h4>Debug Info</h4>
-  <pre><strong>All versions:</strong> {JSON.stringify(versions, null, 2)}</pre>
-  <pre><strong>Replay version ID:</strong> {replayVersionId}</pre>
-  <pre><strong>Filtered versions:</strong> {JSON.stringify(allSelectableVersions, null, 2)}</pre>
-</div>
+        <h4>Debug Info</h4>
+        <pre><strong>Replay version ID:</strong> {replayVersionId}</pre>
+        <pre><strong>Replay scope version IDs:</strong> {JSON.stringify(Array.from(replayScopeVersionIds), null, 2)}</pre>
+        <pre><strong>All finances data:</strong> {JSON.stringify(allFinances, null, 2)}</pre>
+        <pre><strong>Filtered finances data:</strong> {JSON.stringify(filteredFinances, null, 2)}</pre>
+        <pre><strong>All selectable versions:</strong> {JSON.stringify(allSelectableVersions, null, 2)}</pre>
+      </div>
     </section>
   );
 }

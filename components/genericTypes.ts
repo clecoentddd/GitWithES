@@ -78,10 +78,20 @@ export type TimePeriod = {
     | Omit<Event, "timestamp"> & { type: "ChangePublished" };
 
   
-  export type Finances = {
-  [monthKey: string]: {
-    incomes: { amount: number; description: string; changeType: "published" | "cancelled" }[];
-    expenses: { amount: number; description: string; changeType: "published" | "cancelled" }[];
+export type Finances = {
+  [month: string]: {
+    incomes: Array<{
+      amount: number;
+      description: string;
+      changeType: "published" | "cancelled";
+      changeId: string;  // <- This is what we need
+    }>;
+    expenses: Array<{
+      amount: number;
+      description: string;
+      changeType: "published" | "cancelled";
+      changeId: string;  // <- This is what we need
+    }>;
     net: number;
   };
 };

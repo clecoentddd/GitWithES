@@ -219,6 +219,9 @@ versionEvents.forEach(event => {
       amount: event.amount,
       description: event.description,
       changeType,
+      // These two lines are NEW:
+      changeId: event.belongsTo,       // Added the changeId
+      changeTimestamp: change?.timestamp || 0,  // Added timestamp for completeness
     };
 
     if (event.type === "IncomeAdded") {
