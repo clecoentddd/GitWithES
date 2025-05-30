@@ -1,4 +1,5 @@
-import { Event } from "./genericTypes";
+
+import { Event } from './genericTypes';
 import { useState, useEffect } from "react";
 
 export function useDB<T>(db: { list: () => T[]; subscribe: (cb: () => void) => () => void }): T[] {

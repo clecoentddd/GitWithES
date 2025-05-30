@@ -12,13 +12,15 @@ export type TimePeriod = {
 };
   
   
-  export type Entry = {
-    amount: number;
-    description: string;
-    kind: "income" | "expense";
-    changeId: string;
-    isDraft?: boolean;  // <-- Add this line
-  };
+export type Entry = {
+  amount: number;
+  description: string;
+  kind?: "income" | "expense"; // <== make optional if not used
+  changeId: string;
+  changeType: "published" | "cancelled";
+  isDraft?: boolean;
+};
+
   
   export type MonthlyFinances = {
     [monthKey: string]: {

@@ -1,12 +1,10 @@
-import { Event } from "./genericTypes";
+import { Event } from "../src/slices/shared/genericTypes";
 import {
-  createChangeEvent,
   createIncomeEvent,
   createExpenseEvent,
-  createPublishEvent,
-  createCancelEvent,
+
 } from "./events";
-import { DBEvents } from "./DBEVents";
+
 
 // -- Description dropdowns --
 
@@ -97,11 +95,7 @@ function showDescriptionDialog(options: string[]): Promise<string | null> {
 
 // -- Command Functions --
 
-export function createChangeCommand(): string {
-  const { event, changeId } = createChangeEvent();
-  DBEvents.append(event);
-  return changeId;
-}
+
 
 export async function addIncomeCommand(changeId: string): Promise<Event | null> {
   if (!changeId) return null;
@@ -145,13 +139,3 @@ export async function addExpenseCommand(changeId: string): Promise<Event | null>
   return createExpenseEvent(changeId, amount, description, startMonth, endMonth);
 }
 
-export function publishChangeCommand(changeId: string): Event | undefined {
-    if (!changeId) return undefined;
-    return createPublishEvent(changeId);
-  }
-
-export function cancelChangeCommand(changeId: string) {
-  if (!changeId) return null;  // return null if no changeId
-
-  return createCancelEvent(changeId);
-}
